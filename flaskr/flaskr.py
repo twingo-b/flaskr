@@ -112,6 +112,13 @@ def logout():
 def remove_entry(entry_id):
     if not session.get('logged_in'):
         abort(401)
+    if entry_id <= 0:
+        abort(400)  # Bad Request
+    db = get_db()
+    db.execute('DELETE FROM entries WHERE id = ?', [entry_id])
+    db.commit()
+    if not session.get('logged_in'):
+        abort(401)
     db = get_db()
 if not session.get('logged_in'):
         abort(401)
