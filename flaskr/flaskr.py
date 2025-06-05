@@ -58,8 +58,18 @@ def close_db(error):
 
 @app.route('/')
 def show_entries():
-    db = get_db()
-    cur = db.execute('SELECT title, text FROM entries ORDER BY id DESC')
+@app.route('/')
+def show_entries():
+    try:
+        db = get_db()
+        cur = db.execute('SELECT id, title, text FROM entries ORDER BY id DESC')
+        entries = cur.fetchall()
+    except sqlite3.Error as e:
+        # Log the error and return an error page or message
+        app.logger.error(f"Database error: {e}")
+        return render_template('error.html', error="Database error occurred"), 500
+    return render_template('show_entries.html', entries=entries)
+    cur = db.execute('SELECT id, title, text FROM entries ORDER BY id DESC')
     entries = cur.fetchall()
     return render_template('show_entries.html', entries=entries)
 
@@ -95,4 +105,32 @@ def login():
 def logout():
     session.pop('logged_in', None)
     flash('You were logged out')
+    return redirect(url_for('show_entries'))
+
+
+@app.route('/remove/<int:entry_id>', methods=['POST'])
+def remove_entry(entry_id):
+    if not session.get('logged_in'):
+        abort(401)
+    if entry_id <= 0:
+        abort(400)  # Bad Request
+    db = get_db()
+    db.execute('DELETE FROM entries WHERE id = ?', [entry_id])
+    db.commit()
+    if not session.get('logged_in'):
+        abort(401)
+    db = get_db()
+if not session.get('logged_in'):
+        abort(401)
+    db = get_db()
+    try:
+        db.execute('DELETE FROM entries WHERE id = ?', [entry_id])
+        db.commit()
+        flash('Entry was successfully deleted')
+    except sqlite3.Error as e:
+        db.rollback()
+        flash(f'Error deleting entry: {str(e)}')
+    return redirect(url_for('show_entries'))
+    db.commit()
+    flash('Entry was successfully deleted')
     return redirect(url_for('show_entries'))
