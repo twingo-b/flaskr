@@ -144,7 +144,102 @@ class TestFlaskr:
             # the database state is not guaranteed. In a real-world scenario,
             # you might want to set up a known database state before running this test.
 
+def test_add_entry(self):
+        """
+        Test adding an entry to the database.
+        """
+        with app.test_client() as client:
+            # Log in
+            client.post('/login', data={
+                'username': app.config['USERNAME'],
+                'password': app.config['PASSWORD']
+            })
+            
+            # Add an entry
+            title = 'Test Title'
+            text = 'Test text'
+            response = client.post('/add', data={'title': title, 'text': text}, follow_redirects=True)
+            
+            # Check that the entry was added successfully
+            assert b'New entry was successfully posted' in response.data
+            assert title.encode() in response.data
+            assert text.encode() in response.data
+
+    def test_check_entry(self):
+        """
+        Test checking if an entry exists in the database.
+        """
+        with app.test_client() as client:
+            # Log in and add an entry
+            client.post('/login', data={
+                'username': app.config['USERNAME'],
+                'password': app.config['PASSWORD']
+            })
+            title = 'Test Title for Checking'
+            text = 'Test text for checking'
+            client.post('/add', data={'title': title, 'text': text})
+            
+            # Check that the entry exists
+            response = client.get('/')
+            assert title.encode() in response.data
+            assert text.encode() in response.data
+
     def test_remove_entry(self):
+        """
+        Test removing an entry from the database.
+        """
+        with app.test_client() as client:
+            # Log in and add an entry
+            client.post('/login', data={
+                'username': app.config['USERNAME'],
+                'password': app.config['PASSWORD']
+            })
+            title = 'Test Title for Deletion'
+            text = 'Test text for deletion'
+            client.post('/add', data={'title': title, 'text': text})
+            
+            # Get the entry ID
+            with app.app_context():
+                db = get_db()
+                entry = db.execute('SELECT id FROM entries WHERE title = ?', [title]).fetchone()
+                entry_id = entry['id']
+            
+            # Delete the entry
+            response = client.post(f'/remove/{entry_id}', follow_redirects=True)
+            
+            # Check that the entry was deleted
+            assert b'Entry was successfully deleted' in response.data
+            assert title.encode() not in response.data
+            assert text.encode() not in response.data
+
+    def test_verify_entry_removed(self):
+        """
+        Verify that an entry is removed from the database.
+        """
+        with app.test_client() as client:
+            # Log in, add and remove an entry
+            client.post('/login', data={
+                'username': app.config['USERNAME'],
+                'password': app.config['PASSWORD']
+            })
+            title = 'Test Title for Verification'
+            text = 'Test text for verification'
+            client.post('/add', data={'title': title, 'text': text})
+            
+            with app.app_context():
+                db = get_db()
+                entry = db.execute('SELECT id FROM entries WHERE title = ?', [title]).fetchone()
+                entry_id = entry['id']
+            
+            client.post(f'/remove/{entry_id}', follow_redirects=True)
+            
+            # Verify in the database that the entry is gone
+            with app.app_context():
+                db = get_db()
+                entry = db.execute('SELECT * FROM entries WHERE id = ?', [entry_id]).fetchone()
+                assert entry is None
+
+    def test_remove_entry_unauthorized(self):
         """
         Test the remove_entry functionality.
         
